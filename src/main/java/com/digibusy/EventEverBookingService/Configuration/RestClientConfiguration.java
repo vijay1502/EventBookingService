@@ -1,5 +1,6 @@
 package com.digibusy.EventEverBookingService.Configuration;
 
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
@@ -9,6 +10,6 @@ public class RestClientConfiguration {
 
     @Bean
     public RestClient restClient() {
-        return RestClient.builder().baseUrl("http://localhost:8081").build();
+        return RestClient.builder().build();
     }
 }

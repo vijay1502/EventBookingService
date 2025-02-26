@@ -4,6 +4,7 @@ import com.digibusy.EventEverBookingService.Model.Booking;
 import com.digibusy.EventEverBookingService.Model.Ticket;
 import com.digibusy.EventEverBookingService.Repository.TicketRepository;
 import com.digibusy.EventEverBookingService.Service.BookingService;
+import com.digibusy.EventEverBookingService.Utils.QRCodeDecoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,6 +60,16 @@ TicketRepository ticketRepository;
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No QR Code found for this booking!");
         }
         return ResponseEntity.ok(qrCode);
+    }
+
+    @PostMapping("/decode-qr")
+    public ResponseEntity<?> decodeQRCode(@RequestBody String base64Image) {
+        try {
+            String decodedData = QRCodeDecoder.decodeQRCodeFromBase64(base64Image);
+            return ResponseEntity.ok(decodedData);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error decoding QR Code: " + e.getMessage());
+        }
     }
 
 }

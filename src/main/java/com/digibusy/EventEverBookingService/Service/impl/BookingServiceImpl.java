@@ -53,7 +53,10 @@ public class BookingServiceImpl implements BookingService {
 //        EventResponse eventResponse=
 //                eventFeignClient.getEventById(booking.getEventId());
 
-        EventResponse eventResponse = restClient.get()
+        EventResponse eventResponse = restClient
+                .mutate().baseUrl("http://localhost:8081")
+                .build()
+                .get()
                 .uri("/event/event/{id}", booking.getEventId())
                 .retrieve()
                 .body(EventResponse.class);
@@ -84,7 +87,7 @@ public class BookingServiceImpl implements BookingService {
                     ticket.setQrCode(qrCodeBase64);
             ticketRepository.save(ticket);
         }
-        restClient.put()
+        restClient.mutate().baseUrl("http://localhost:8081").build().put()
                 .uri(uriBuilder -> uriBuilder.path("/event/{id}/updateSeats")
                         .queryParam("seats", ticketCount)
                         .build(booking.getEventId()))
@@ -95,9 +98,27 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public String cancelBooking(Long bookingId) {
-        if(bookingRepository.findById(bookingId).isPresent()){
-            bookingRepository.deleteById(bookingId);
-            return "Booking Cancelled";
+        Optional<Booking> byId = bookingRepository.findById(bookingId);
+        if(byId.isPresent()){
+            long ticketsBookedCount = ticketRepository.findTicketsBookedCount(bookingId);
+
+            try {
+                bookingRepository.deleteById(bookingId);
+            }catch (Exception ex){
+                throw new RuntimeException("Unable to Cancel Tickets");
+            }
+            try{
+                restClient.mutate().baseUrl("http://localhost:8081").build().put()
+                        .uri(uriBuilder -> uriBuilder.path("/event/{id}/updateSeats")
+                                .queryParam("seats", -ticketsBookedCount)
+                                .build(byId.get().getEventId()))
+                        .retrieve()
+                        .toBodilessEntity();
+                return "Booking Cancelled";
+            }catch (Exception ex){
+                throw new RuntimeException("Unable to update ticket availability number:"+ticketsBookedCount+"Error:"+ ex.getMessage());
+            }
+
         }
         return "Unable to find Booking";
     }

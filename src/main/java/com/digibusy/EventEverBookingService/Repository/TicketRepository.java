@@ -13,4 +13,7 @@ public interface TicketRepository extends JpaRepository<Ticket,Long> {
     List<Ticket> findByBookingId(Long bookingId);
     @Query(value = "SELECT qr_code FROM ticket WHERE booking_id = :bookingId LIMIT 1", nativeQuery = true)
     String findQrCodeByBookingId(@Param("bookingId") Long bookingId);
+
+    @Query(value = "SELECT count(*) from ticket where booking_id = :bookingId", nativeQuery = true)
+    long findTicketsBookedCount(Long bookingId);
 }
