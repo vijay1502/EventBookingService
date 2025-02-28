@@ -23,11 +23,11 @@ public class EventResponse {
     private String organizerId;
     private int availableSeats;
     private String status;
-
+    private String eventType;
     public EventResponse() {
     }
 
-    public EventResponse(LocalDateTime createdAt, LocalDateTime updatedAt, String createdBy, String updatedBy, long id, String title, String description, String category, String location, LocalDateTime startTime, LocalDateTime endTime, BigDecimal price, int capacity, String organizerId, int availableSeats, String status) {
+    public EventResponse(LocalDateTime createdAt, LocalDateTime updatedAt, String createdBy, String updatedBy, long id, String title, String description, String category, String location, LocalDateTime startTime, LocalDateTime endTime, BigDecimal price, int capacity, String organizerId, int availableSeats, String status, String eventType) {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.createdBy = createdBy;
@@ -44,6 +44,7 @@ public class EventResponse {
         this.organizerId = organizerId;
         this.availableSeats = availableSeats;
         this.status = status;
+        this.eventType = eventType;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -174,6 +175,14 @@ public class EventResponse {
         this.status = status;
     }
 
+    public String getEventType() {
+        return eventType;
+    }
+
+    public void setEventType(String eventType) {
+        this.eventType = eventType;
+    }
+
     @Override
     public String toString() {
         return "EventResponse{" +
@@ -193,6 +202,7 @@ public class EventResponse {
                 ", organizerId='" + organizerId + '\'' +
                 ", availableSeats=" + availableSeats +
                 ", status='" + status + '\'' +
+                ", eventType='" + eventType + '\'' +
                 '}';
     }
 }

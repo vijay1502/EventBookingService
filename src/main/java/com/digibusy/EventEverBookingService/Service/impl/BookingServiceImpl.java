@@ -1,9 +1,7 @@
 package com.digibusy.EventEverBookingService.Service.impl;
 
 import com.digibusy.EventEverBookingService.Configuration.EventFeignClient;
-import com.digibusy.EventEverBookingService.Model.Booking;
-import com.digibusy.EventEverBookingService.Model.EventResponse;
-import com.digibusy.EventEverBookingService.Model.Ticket;
+import com.digibusy.EventEverBookingService.Model.*;
 import com.digibusy.EventEverBookingService.Repository.BookingRepository;
 import com.digibusy.EventEverBookingService.Repository.TicketRepository;
 import com.digibusy.EventEverBookingService.Service.BookingService;
@@ -13,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,16 +41,7 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public Booking createBooking(Booking booking, int ticketCount) {
-//        Booking save = bookingRepository.save(booking);
-//        for (int i = 0; i <= ticketCount; i++) {
-//            Ticket ticket= Ticket.builder().booking(save).seatNumber("Seat-"+i)
-//                    .qrCode("QR-"+save.getId()+"-"+i)
-//                    .build();
-//
-//        }
-//        return bookingRepository.save(booking);
-//        EventResponse eventResponse=
-//                eventFeignClient.getEventById(booking.getEventId());
+
 
         EventResponse eventResponse = restClient
                 .mutate().baseUrl("http://localhost:8081")
@@ -66,6 +56,50 @@ public class BookingServiceImpl implements BookingService {
         if(eventResponse.getAvailableSeats() < ticketCount){
             throw new RuntimeException("Not Enough seats available");
         }
+
+        if ("PUBLIC".equalsIgnoreCase(eventResponse.getEventType()) && eventResponse.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+            PaymentRequest paymentRequest = new PaymentRequest(
+                    booking.getUserId(),
+                    booking.getEventId(),
+                    eventResponse.getPrice().multiply(BigDecimal.valueOf(ticketCount)) // Total price
+            );
+            PaymentResponse paymentResponse = restClient
+                    .mutate().baseUrl("http://localhost:8083")
+                    .build()
+                    .post()
+                    .uri("/payment/request")
+                    .body(paymentRequest)
+                    .retrieve()
+                    .body(PaymentResponse.class);
+
+            if (paymentResponse == null || !"PENDING".equals(paymentResponse.getStatus())) {
+                throw new RuntimeException("Payment failed! Booking cannot proceed.");
+            }
+
+            // ✅ Step 3: Poll Payment Status Before Confirming Booking
+            String paymentStatus;
+            int retryCount = 0;
+            do {
+                paymentStatus = restClient
+                        .mutate().baseUrl("http://localhost:8083")
+                        .build()
+                        .get()
+                        .uri("/payment/status/{orderId}", paymentResponse.getOrderId())
+                        .retrieve()
+                        .body(String.class);
+
+                retryCount++;
+                try {
+                    Thread.sleep(2000); // Wait for 2 seconds before retrying
+                } catch (InterruptedException ignored) {}
+
+            } while ("PENDING".equals(paymentStatus) && retryCount < 5);
+
+            if (!"SUCCESS".equals(paymentStatus)) {
+                throw new RuntimeException("Payment verification failed! Booking cancelled.");
+            }
+        }
+
         Booking savedBooking = bookingRepository.save(booking);
         // Generate a single QR Code for the entire booking
         String qrCodeData = "Booking ID: " + savedBooking.getId() +
@@ -93,6 +127,33 @@ public class BookingServiceImpl implements BookingService {
                         .build(booking.getEventId()))
                 .retrieve()
                 .toBodilessEntity();
+
+//
+//        PaymentRequest paymentRequest = new PaymentRequest(booking.getUserId(), booking.getEventId(), booking.getPrice());
+//        PaymentResponse paymentResponse = paymentRestClient.processPayment(paymentRequest);
+//
+//        if (!"PENDING".equals(paymentResponse.getStatus())) {
+//            throw new RuntimeException("Payment failed!");
+//        }
+//
+//        // ✅ Poll Payment Status Before Confirming Booking
+//        String paymentStatus;
+//        int retryCount = 0;
+//        do {
+//            paymentStatus = paymentRestClient.getPaymentStatus(paymentResponse.getOrderId());
+//            retryCount++;
+//            Thread.sleep(2000); // Wait for 2 seconds before retrying
+//        } while ("PENDING".equals(paymentStatus) && retryCount < 5);
+//
+//        if ("SUCCESS".equals(paymentStatus)) {
+//            booking.setStatus("CONFIRMED");
+//        } else {
+//            booking.setStatus("PAYMENT_FAILED");
+//        }
+//
+//        return bookingRepository.save(booking);
+
+
         return savedBooking;
     }
 
